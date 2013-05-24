@@ -2,11 +2,13 @@
 # __author__ = chenchiyuan
 
 from __future__ import division, unicode_literals, print_function
+from util.exceptions import CacheDownException
 import random
+import time
+
 failure_rate = 100 # 1/100
 AVAILABLE_FIELD = "__AVAILABLE"
 DELAY_AREA = (0, 100)
-import time
 
 def delay_decorator(func):
     def wrapper(*args, **kwargs):
@@ -20,7 +22,7 @@ def problem_decorator(func):
     def wrapper(*args, **kwargs):
         instance = args[0]
         if not getattr(instance, AVAILABLE_FIELD, True):
-            raise Exception()
+            raise CacheDownException()
         worked = random.randint(0, failure_rate)
         if not worked:
             setattr(instance, AVAILABLE_FIELD, False)
@@ -54,3 +56,5 @@ class CacheServer(object):
     def get(self, name, *args, **kwargs):
         return self.cache.get(name, "")
 
+    def ping(self):
+        return bool(getattr(self, AVAILABLE_FIELD, False))
