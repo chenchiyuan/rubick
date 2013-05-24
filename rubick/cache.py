@@ -5,6 +5,16 @@ from __future__ import division, unicode_literals, print_function
 import random
 failure_rate = 100 # 1/100
 AVAILABLE_FIELD = "__AVAILABLE"
+DELAY_AREA = (0, 100)
+import time
+
+def delay_decorator(func):
+    def wrapper(*args, **kwargs):
+        delay = kwargs.pop("delay", 0) or random.randint(*DELAY_AREA)
+        time.sleep(delay/1000)
+        res = func(*args, **kwargs)
+        return res
+    return wrapper
 
 def problem_decorator(func):
     def wrapper(*args, **kwargs):
@@ -18,24 +28,28 @@ def problem_decorator(func):
             return func(*args, **kwargs)
     return wrapper
 
-class ProblemMetaClass(type):
+class ActionMetaClass(type):
+    DECORATORS = [delay_decorator, problem_decorator]
     def __new__(cls, class_name, bases, class_dict):
         for attr, item in class_dict.items():
             if callable(item):
-                class_dict[attr] = problem_decorator(item)
+                for decorator in cls.DECORATORS:
+                    item = decorator(item)
+                class_dict[attr] = item
+
         if not AVAILABLE_FIELD in class_dict:
             class_dict[AVAILABLE_FIELD] = True
         return type.__new__(cls, class_name, bases, class_dict)
 
 class BaseCache(object):
-    __metaclass__ = ProblemMetaClass
+    __metaclass__ = ActionMetaClass
 
     def __init__(self):
         self.cache = {}
 
-    def set(self, name, value):
+    def set(self, name, value, *args, **kwargs):
         self.cache[name] = value
 
-    def get(self, name):
+    def get(self, name, *args, **kwargs):
         return self.cache.get(name, "")
 
