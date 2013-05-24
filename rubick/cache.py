@@ -41,11 +41,12 @@ class ActionMetaClass(type):
             class_dict[AVAILABLE_FIELD] = True
         return type.__new__(cls, class_name, bases, class_dict)
 
-class BaseCache(object):
+class CacheServer(object):
     __metaclass__ = ActionMetaClass
 
-    def __init__(self):
+    def __init__(self, port=8000):
         self.cache = {}
+        self.port = port
 
     def set(self, name, value, *args, **kwargs):
         self.cache[name] = value
