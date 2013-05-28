@@ -30,8 +30,12 @@ class Cluster(object):
     def get(self, key, *args, **kwargs):
         ports = self.select_port(key, *args, **kwargs)
         caches = self.get_cache(ports)
-        cache = random.choice(caches)
-        return cache.get(key, *args, **kwargs)
+        value = None
+        for cache in caches:
+            value = cache.get(key, *args, **kwargs)
+            if value:
+                break
+        return value
 
     def set(self, key, value, *args, **kwargs):
         ports = self.select_port(key, *args, **kwargs)
@@ -77,12 +81,10 @@ class NameServer(object):
     def consistent_hash(self, cluster, value, *args, **kwargs):
         cluster.check_caches()
         ports = cluster.current_caches().keys()
-        select_port = None
-        current_value = ""
-        for port in ports:
-            md5_value = md5(str(port) + str(value))
-            if md5_value > current_value:
-                select_port = port
-        if select_port is None:
+        values = map(lambda x: md5(str(x)), ports)
+        port_values = zip(ports, values)
+        sorted_port_values = sorted(port_values, key=lambda item: item[1])
+        selected_ports, _ = zip(*sorted_port_values)
+        if not selected_ports:
             raise Exception("No ports, Cluster Down")
-        return [select_port,]
+        return selected_ports[:self.redundancy]

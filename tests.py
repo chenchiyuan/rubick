@@ -8,9 +8,9 @@ from rubick.client import Client
 key = "test"
 value = ""
 
-def test():
+def test(redundancy=2):
     client = Client()
-    name_server = NameServer(strategy="consistent_hash")
+    name_server = NameServer(strategy="consistent_hash", redundancy=redundancy)
     cluster = Cluster(name_server)
     items = range(1, 100)
     for i in items:
