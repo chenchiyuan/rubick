@@ -10,24 +10,32 @@ class Cluster(object):
     """
     认为集群是不会挂的。
     """
-    def __init__(self, ports=range(0, 100)):
+    def __init__(self, name_server, ports=range(0, 100)):
+        self.name_server = name_server
         self.server = {}
         for port in ports:
             cache = CacheServer(port)
             self.server[port] = cache
+
+    def select_port(self, key, *args, **kwargs):
+        return self.name_server.get_port(self, key, *args, **kwargs)
 
     def get_cache(self, port):
         if not port in self.server:
             raise Exception("Port not in pools")
         return self.server[port]
 
-    def get(self, port, key, *args, **kwargs):
-        cache = self.get_cache(port)
+    def get(self, key, *args, **kwargs):
+        ports = self.select_port(key, *args, **kwargs)
+        caches = self.get_cache(ports)
+        cache = random.choice(caches)
         return cache.get(key, *args, **kwargs)
 
-    def set(self, port, key, value, *args, **kwargs):
-        cache = self.get_cache(port)
-        return cache.set(key, value, *args, **kwargs)
+    def set(self, key, value, *args, **kwargs):
+        ports = self.select_port(key, *args, **kwargs)
+        caches = self.get_cache(ports)
+        for cache in caches:
+            cache.set(key, value, *args, **kwargs)
 
     def check_caches(self):
         """
@@ -53,22 +61,20 @@ class NameServer(object):
     """
     NameServer负责维护数据冗余，以及如何去读取数据
     """
-    def __init__(self, cluster, strategy="", redundancy=3):
+    def __init__(self, strategy="", redundancy=3):
         self.redundancy = redundancy
-        self.cluster = cluster
         self.hash_strategy = getattr(self, strategy, self.random_hash)
 
-    def get_port(self, input):
-        return self.hash_strategy(input)
+    def get_port(self, cluster, input, *args, **kwargs):
+        return self.hash_strategy(cluster, input, *args, **kwargs)
 
+    def random_hash(self, cluster, *args, **kwargs):
+        cluster.check_caches()
+        return random.choice(cluster.current_caches().keys())
 
-    def random_hash(self, *args, **kwargs):
-        self.cluster.check_caches()
-        return random.choice(self.cluster.current_caches().keys())
-
-    def consistent_hash(self, value, *args, **kwargs):
-        self.cluster.check_caches()
-        ports = self.cluster.current_caches().keys()
+    def consistent_hash(self, cluster, value, *args, **kwargs):
+        cluster.check_caches()
+        ports = cluster.current_caches().keys()
         select_port = None
         current_value = ""
         for port in ports:
@@ -78,12 +84,3 @@ class NameServer(object):
         if select_port is None:
             raise Exception("No ports, Cluster Down")
         return select_port
-
-    def get(self, key):
-        port = self.get_port(key)
-        self.cluster.get(port, key)
-
-    def set(self, key, value):
-        port = self.get_port(key)
-        self.cluster.set(port, key, value)
-
