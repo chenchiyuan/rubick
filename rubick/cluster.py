@@ -20,10 +20,12 @@ class Cluster(object):
     def select_port(self, key, *args, **kwargs):
         return self.name_server.get_port(self, key, *args, **kwargs)
 
-    def get_cache(self, port):
-        if not port in self.server:
-            raise Exception("Port not in pools")
-        return self.server[port]
+    def get_cache(self, ports):
+        caches = []
+        for port in ports:
+            if port in self.server:
+                caches.append(self.server[port])
+        return caches
 
     def get(self, key, *args, **kwargs):
         ports = self.select_port(key, *args, **kwargs)
@@ -83,4 +85,4 @@ class NameServer(object):
                 select_port = port
         if select_port is None:
             raise Exception("No ports, Cluster Down")
-        return select_port
+        return [select_port,]
